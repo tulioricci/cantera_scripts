@@ -14,8 +14,32 @@ gas0 = ct.Solution('mechanism.yaml')
 species = gas0.species()
 reactions = gas0.reactions()
 
-for ireact in range(0,len(reactions)):
-    
+eps = 0.9
+
+perturbed_species = "CH2*"
+
+
+if perturbed_species is None:
+    reaction_list = reactions
+    idx_reacts = 0 #FIXME
+else:
+    ireact = -1
+    idx_reacts = []
+    reaction_list = []
+    for R in reactions:
+        ireact += 1
+        if any(perturbed_species in reactant for reactant in R.reactants) or any(perturbed_species in product for product in R.products):
+            reaction_list.append(R)
+            idx_reacts.append(ireact)
+        else:
+            continue
+        print(R)
+
+
+for idx in range(0,len(reaction_list)):
+    ireact = idx_reacts[idx]
+    print(idx, ireact, reactions[ireact], reactions[ireact].reaction_type)
+
     ii = 0
     temp_array = np.linspace(1000,2800,11)
     temp_history = np.zeros((temp_array.shape[0],gas0.n_species+1))
@@ -23,13 +47,13 @@ for ireact in range(0,len(reactions)):
 
     custom_reactions = [r for r in reactions]
 
-    print(ireact, reactions[ireact].equation, reactions[ireact].reaction_type)
+    #print(ireact, reactions[ireact].equation, reactions[ireact].reaction_type)
 
     if reactions[ireact].reaction_type == "Arrhenius":
         custom_reactions[ireact] = ct.Reaction(
             reactions[ireact].reactants,
             reactions[ireact].products,
-            ct.ArrheniusRate(1.1*reactions[ireact].rate.input_data['rate-constant']['A'],
+            ct.ArrheniusRate(eps*reactions[ireact].rate.input_data['rate-constant']['A'],
                              1.0*reactions[ireact].rate.input_data['rate-constant']['b'],
                              1.0*reactions[ireact].rate.input_data['rate-constant']['Ea']))
 
@@ -40,7 +64,7 @@ for ireact in range(0,len(reactions)):
             eff = ct.ThirdBody(collider=list(effs.keys())[0])            
             custom_reactions[ireact] = ct.Reaction(
                     equation=reactions[ireact].equation,
-                    rate=ct.ArrheniusRate(1.1*reactions[ireact].rate.input_data['rate-constant']['A'],
+                    rate=ct.ArrheniusRate(eps*reactions[ireact].rate.input_data['rate-constant']['A'],
                                           1.0*reactions[ireact].rate.input_data['rate-constant']['b'],
                                           1.0*reactions[ireact].rate.input_data['rate-constant']['Ea']),
                     )
@@ -49,7 +73,7 @@ for ireact in range(0,len(reactions)):
             eff.efficiencies = reactions[ireact].third_body.efficiencies
             custom_reactions[ireact] = ct.Reaction(
                 equation=reactions[ireact].equation,
-                rate=ct.ArrheniusRate(1.1*reactions[ireact].rate.input_data['rate-constant']['A'],
+                rate=ct.ArrheniusRate(eps*reactions[ireact].rate.input_data['rate-constant']['A'],
                                       1.0*reactions[ireact].rate.input_data['rate-constant']['b'],
                                       1.0*reactions[ireact].rate.input_data['rate-constant']['Ea']),
                 third_body=eff
@@ -57,10 +81,10 @@ for ireact in range(0,len(reactions)):
 
 
     if reactions[ireact].reaction_type == "falloff-Troe":
-        low = ct.Arrhenius(1.1*reactions[ireact].rate.input_data['low-P-rate-constant']['A'],
+        low = ct.Arrhenius(eps*reactions[ireact].rate.input_data['low-P-rate-constant']['A'],
                            1.0*reactions[ireact].rate.input_data['low-P-rate-constant']['b'],
                            1.0*reactions[ireact].rate.input_data['low-P-rate-constant']['Ea'])
-        high = ct.Arrhenius(1.1*reactions[ireact].rate.input_data['high-P-rate-constant']['A'],
+        high = ct.Arrhenius(eps*reactions[ireact].rate.input_data['high-P-rate-constant']['A'],
                             1.0*reactions[ireact].rate.input_data['high-P-rate-constant']['b'],
                             1.0*reactions[ireact].rate.input_data['high-P-rate-constant']['Ea'])
         Troe = [reactions[ireact].rate.input_data['Troe']['A'],
