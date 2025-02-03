@@ -10,7 +10,7 @@ volume_per_min = 25
 
 coeff = 1.1
 
-mech = "uiuc_20sp.yaml"
+mech = "uiuc_20sp"
 
 width = 0.010 # m
 
@@ -44,7 +44,7 @@ r_int = 2.38*25.4/2000
 A_int = np.pi*r_int**2
 lmin_to_m3s = 1.66667e-5
 
-gas0 = ct.Solution(mech)
+gas0 = ct.Solution(mech + ".yaml")
 species = gas0.species()
 reactions = gas0.reactions()
 
@@ -85,22 +85,22 @@ for ireact, reaction in enumerate(reactions):
             reactions[ireact].reactants,
             reactions[ireact].products,
             ct.ArrheniusRate(coeff*reactions[ireact].rate.input_data['rate-constant']['A'],
-                             1.0*reactions[ireact].rate.input_data['rate-constant']['b'],
-                             1.0*reactions[ireact].rate.input_data['rate-constant']['Ea']),
+                               1.0*reactions[ireact].rate.input_data['rate-constant']['b'],
+                               1.0*reactions[ireact].rate.input_data['rate-constant']['Ea']),
             third_body=custom_reactions[ireact].third_body)
 
-            print(reactions[ireact].rate.input_data['rate-constant']['A'])
-            print(custom_reactions[ireact].rate.input_data['rate-constant']['A'])
+        print(reactions[ireact].rate.input_data['rate-constant']['A'])
+        print(custom_reactions[ireact].rate.input_data['rate-constant']['A'])
             
     if rxn_type == "falloff-Troe":
     
         low = ct.Arrhenius(coeff*reactions[ireact].rate.input_data['low-P-rate-constant']['A'],
-                                 1.0*reactions[ireact].rate.input_data['low-P-rate-constant']['b'],
-                                 1.0*reactions[ireact].rate.input_data['low-P-rate-constant']['Ea'])
+                             1.0*reactions[ireact].rate.input_data['low-P-rate-constant']['b'],
+                             1.0*reactions[ireact].rate.input_data['low-P-rate-constant']['Ea'])
     
         high = ct.Arrhenius(coeff*reactions[ireact].rate.input_data['high-P-rate-constant']['A'],
-                                 1.0*reactions[ireact].rate.input_data['high-P-rate-constant']['b'],
-                                 1.0*reactions[ireact].rate.input_data['high-P-rate-constant']['Ea']) 
+                              1.0*reactions[ireact].rate.input_data['high-P-rate-constant']['b'],
+                              1.0*reactions[ireact].rate.input_data['high-P-rate-constant']['Ea']) 
         falloff_coeffs = np.array([
                 reactions[ireact].rate.input_data["Troe"]["A"],
                 reactions[ireact].rate.input_data["Troe"]["T3"],
@@ -118,7 +118,7 @@ for ireact, reaction in enumerate(reactions):
     gas = ct.Solution(thermo='ideal-gas', kinetics='gas', 
                        species=species, reactions=custom_reactions)
     gas.transport_model = transp_model
-
+    
     x = np.zeros(gas.n_species,)
     x[gas.species_index('N2')] = 1.0
     gas.TPX = 273.15, 101325.0, x
@@ -127,14 +127,14 @@ for ireact, reaction in enumerate(reactions):
     for phi in phi_array:
         print("phi=", phi)
 
-        result_file = ('./flux/stagnation_flame_uiuc20sp' +
+        result_file = ('./flux/stagnation_flame_' + mech +
                        '_m' + str('%4.2f' % volume_per_min) + 
                        '_phi' + str('%4.2f' % phi) +
                        '_S' + str('%04d' % ireact) + 
                        '_coeff' + str('%4.2f' % coeff) +                          
                        '.csv') 
 
-        csv_file = ('./csv/stagnation_flame_uiuc20sp' +
+        csv_file = ('./csv/stagnation_flame_' + mech +
                    '_m' + str('%4.2f' % volume_per_min) + 
                    '_phi' + str('%4.2f' % phi) +
                    '_S' + str('%04d' % ireact) +
@@ -199,11 +199,5 @@ for ireact, reaction in enumerate(reactions):
             if rxn_type == "falloff-Troe":    
                 print(ireact, maxT, flux, custom_reactions[ireact].equation, custom_reactions[ireact].rate.input_data['low-P-rate-constant']['A'])
                 data = [ireact, maxT, flux, custom_reactions[ireact].equation, custom_reactions[ireact].rate.input_data['low-P-rate-constant']['A']]          
-            
-            result_file = ('./flux/stagnation_flame_uiuc20sp' +
-                           '_m' + str('%4.2f' % volume_per_min) + 
-                           '_phi' + str('%4.2f' % phi) +
-                           '_S' + str('%04d' % ireact) + 
-                           '_coeff' + str('%4.2f' % coeff) +                          
-                           '.csv')         
+
             np.savetxt(result_file, data, fmt="%s")
