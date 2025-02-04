@@ -8,9 +8,9 @@ plt.close("all")
 
 volume_per_min = 25
 
-coeff = 0.9
+coeff = 1.1
 
-mech = "uiuc_20sp"
+mech = "wang99_51sp"
 
 width = 0.010 # m
 

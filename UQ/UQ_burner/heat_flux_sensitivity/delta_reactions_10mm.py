@@ -1,16 +1,19 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import os
+from matplotlib.ticker import *
+
+#plt.rc('text', usetex=True)
+#plt.rcParams['text.latex.preamble']=r"\usepackage{amsmath}"
+plt.rcParams.update({'axes.labelsize': 20})
+
 import cantera as ct
+import pandas as pd
 import sys
 
 plt.close("all")
 
 volume_per_min = 25
-
-coeff = 1.1
-
-mech = "uiuc_20sp"
 
 width = 0.010 # m
 
@@ -20,6 +23,8 @@ phi_array = np.asarray([0.55, 0.70, 0.85, 1.0, 1.15, 1.30])
 
 surf_temp = 300.0
 burner_temp = 300.0
+
+mech = "wang99_51sp"
 
 transp_model = 'mixture-averaged'
 #transp_model = 'multicomponent'
@@ -75,32 +80,40 @@ idx = []
     #print('combo #{}: {}'.format(i, combo))
 
 for ireact, reaction in enumerate(reactions):
-    print(ireact, reactions[ireact])
+    #print(ireact, reactions[ireact])
+
+    coeff = 1.1
     
     custom_reactions = [r for r in reactions]
     rxn_type = custom_reactions[ireact].reaction_type
+
+    if rxn_type == "Arrhenius" or rxn_type == "three-body-Arrhenius":
+        A_parameter = reactions[ireact].rate.input_data['rate-constant']['A']
+    if rxn_type == "falloff-Troe":
+        A_parameter = reactions[ireact].rate.input_data['low-P-rate-constant']['A']
+    if np.abs(A_parameter) > 0.0:
+        print(ireact, reactions[ireact].equation, A_parameter)
+    else:
+        continue
 
     if rxn_type == "Arrhenius" or rxn_type == "three-body-Arrhenius":
         custom_reactions[ireact] = ct.Reaction(
             reactions[ireact].reactants,
             reactions[ireact].products,
             ct.ArrheniusRate(coeff*reactions[ireact].rate.input_data['rate-constant']['A'],
-                               1.0*reactions[ireact].rate.input_data['rate-constant']['b'],
-                               1.0*reactions[ireact].rate.input_data['rate-constant']['Ea']),
+                             1.0*reactions[ireact].rate.input_data['rate-constant']['b'],
+                             1.0*reactions[ireact].rate.input_data['rate-constant']['Ea']),
             third_body=custom_reactions[ireact].third_body)
-
-        print(reactions[ireact].rate.input_data['rate-constant']['A'])
-        print(custom_reactions[ireact].rate.input_data['rate-constant']['A'])
             
     if rxn_type == "falloff-Troe":
     
         low = ct.Arrhenius(coeff*reactions[ireact].rate.input_data['low-P-rate-constant']['A'],
-                             1.0*reactions[ireact].rate.input_data['low-P-rate-constant']['b'],
-                             1.0*reactions[ireact].rate.input_data['low-P-rate-constant']['Ea'])
+                           1.0*reactions[ireact].rate.input_data['low-P-rate-constant']['b'],
+                           1.0*reactions[ireact].rate.input_data['low-P-rate-constant']['Ea'])
     
         high = ct.Arrhenius(coeff*reactions[ireact].rate.input_data['high-P-rate-constant']['A'],
-                              1.0*reactions[ireact].rate.input_data['high-P-rate-constant']['b'],
-                              1.0*reactions[ireact].rate.input_data['high-P-rate-constant']['Ea']) 
+                            1.0*reactions[ireact].rate.input_data['high-P-rate-constant']['b'],
+                            1.0*reactions[ireact].rate.input_data['high-P-rate-constant']['Ea']) 
         falloff_coeffs = np.array([
                 reactions[ireact].rate.input_data["Troe"]["A"],
                 reactions[ireact].rate.input_data["Troe"]["T3"],
@@ -112,13 +125,10 @@ for ireact, reaction in enumerate(reactions):
             ct.TroeRate(high=high, low=low, falloff_coeffs=falloff_coeffs)
             )
 
-        print(reactions[ireact].rate.input_data['rate-constant']['A'])
-        print(custom_reactions[ireact].rate.input_data['rate-constant']['A'])
-
     gas = ct.Solution(thermo='ideal-gas', kinetics='gas', 
                        species=species, reactions=custom_reactions)
     gas.transport_model = transp_model
-    
+
     x = np.zeros(gas.n_species,)
     x[gas.species_index('N2')] = 1.0
     gas.TPX = 273.15, 101325.0, x
@@ -160,9 +170,7 @@ for ireact, reaction in enumerate(reactions):
             sim.set_initial_guess(products='equil')
             sim.radiation_enabled = use_radiation
 
-            flag = False
-            while flag is False:
-
+            try:
                 sim.inlet.mdot = rhoU_ref
                 
                 sim.set_refine_criteria(ratio=4, slope=0.25, curve=0.25,
@@ -180,24 +188,28 @@ for ireact, reaction in enumerate(reactions):
                 sim.set_refine_criteria(ratio=ratio, slope=slope, curve=curve,
                                         prune=0.025)
                 sim.solve(loglevel, refine_grid=True, auto=True)
-               
-                flag = True
 
-            dT = sim.T[-2] - sim.T[-1]
-            dx = sim.grid[-2] - sim.grid[-1]
-            kappa = sim.thermal_conductivity
-            flux = kappa[-1]*dT/dx/10000.0
-            maxT = max(sim.T)
+                dT = sim.T[-2] - sim.T[-1]
+                dx = sim.grid[-2] - sim.grid[-1]
+                kappa = sim.thermal_conductivity
+                flux = kappa[-1]*dT/dx/10000.0
+                maxT = max(sim.T)
+    
+                # write the velocity, temperature, and mole fractions to a CSV file
+                sim.save(csv_file, basis="mole")
+                
+                if rxn_type == "Arrhenius" or rxn_type == "three-body-Arrhenius":
+                    print(ireact, maxT, flux, custom_reactions[ireact].equation, custom_reactions[ireact].rate.input_data['rate-constant']['A'])
+                    data = [ireact, maxT, flux, custom_reactions[ireact].equation, custom_reactions[ireact].rate.input_data['rate-constant']['A']]
+    
+                if rxn_type == "falloff-Troe":    
+                    print(ireact, maxT, flux, custom_reactions[ireact].equation, custom_reactions[ireact].rate.input_data['low-P-rate-constant']['A'])
+                    data = [ireact, maxT, flux, custom_reactions[ireact].equation, custom_reactions[ireact].rate.input_data['low-P-rate-constant']['A']]          
 
-            # write the velocity, temperature, and mole fractions to a CSV file
-            sim.save(csv_file, basis="mole")
-            
-            if rxn_type == "Arrhenius" or rxn_type == "three-body-Arrhenius":
-                print(ireact, maxT, flux, custom_reactions[ireact].equation, custom_reactions[ireact].rate.input_data['rate-constant']['A'])
-                data = [ireact, maxT, flux, custom_reactions[ireact].equation, custom_reactions[ireact].rate.input_data['rate-constant']['A']]
-
-            if rxn_type == "falloff-Troe":    
-                print(ireact, maxT, flux, custom_reactions[ireact].equation, custom_reactions[ireact].rate.input_data['low-P-rate-constant']['A'])
-                data = [ireact, maxT, flux, custom_reactions[ireact].equation, custom_reactions[ireact].rate.input_data['low-P-rate-constant']['A']]          
-
+            except:
+                if rxn_type == "Arrhenius" or rxn_type == "three-body-Arrhenius":
+                    data = [ireact, np.nan, np.nan, custom_reactions[ireact].equation, custom_reactions[ireact].rate.input_data['rate-constant']['A']]          
+                if rxn_type == "falloff-Troe":    
+                    data = [ireact, np.nan, np.nan, custom_reactions[ireact].equation, custom_reactions[ireact].rate.input_data['low-P-rate-constant']['A']]          
+                 
             np.savetxt(result_file, data, fmt="%s")
