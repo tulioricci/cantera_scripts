@@ -1,12 +1,13 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-phi_array = [0.55,0.70,0.85,1.00,1.15,1.30]
-perturb_array = [0.5, 2.0]
-nrxn = 78
+color_list = ["red", "green", "blue", "orange", "magenta"]
+phi_array = [0.55, 0.70, 0.85, 1.00, 1.15, 1.30]
+perturb_array = [0.9, 1.1]
 
-nphi = len(phi_array)
-nperturb = len(perturb_array)
+nImportantReactions = 3
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 baseline = np.array([    
 -4.422205389872788, 
@@ -19,38 +20,48 @@ baseline = np.array([
 plt.rc('text', usetex=True)
 plt.rcParams['text.latex.preamble']=r"\usepackage{amsmath}"
 
+nphi = len(phi_array)
+nperturb = len(perturb_array)
+nreactions = 77 # FIXME
 
-for reaction in range(0,nrxn):
-    heatFlux = np.zeros((nphi,nperturb))
+reactionList = []
+
+kk = 0
+heatFlux = np.zeros((nphi,nperturb,nreactions))
+for reaction in range(0,nreactions):
 
     jj = 0
     for perturb in perturb_array:
-        ii = 0
         filename = ("linearParameter_A/reaction_"
                      + str('%04d' % reaction)
                      + "_" + str('%0.2f' % perturb)
                      + ".dat")
+        ii = 0
         try:
             f = open(filename)
             for phi in phi_array:
 
-                line1 = f.readline()
-                line1 = line1.split(" ",4)
-                flux = float(line1[1])
-                heatFlux[ii,jj] =  flux
+                readLine = f.readline()
+                data = readLine.split(" ",4)
+                flux = -float(data[1])
+                heatFlux[ii,jj,kk] = flux
                 
-                if flux > -1.0:
-                    heatFlux[ii,jj] = np.nan
-                    print(phi, reaction, perturb, flux)
+                if flux < 1.0:
+                    heatFlux[ii,jj,kk] = np.nan
                 
                 ii += 1
-            f.close()            
-            jj += 1
+            f.close()
         except:
-            heatFlux[:,:] = np.nan
+            heatFlux[ii,jj,kk] = np.nan
+        
+        reactionList.append(data[-1].replace("\n",""))
+        
+        jj += 1
 
-    plt.plot(phi_array, -heatFlux[:,0], color="purple")
-    plt.plot(phi_array, -heatFlux[:,1], color="magenta")
+        k = kk % len(color_list)
+        plt.plot(np.array(phi_array), heatFlux[:,0,kk], "--", color=color_list[k])
+        plt.plot(np.array(phi_array), heatFlux[:,1,kk], color=color_list[k])
+    kk = kk + 1
 
 plt.plot(phi_array, -baseline, color="black")
 plt.legend()
@@ -59,3 +70,17 @@ plt.xlabel("phi")
 plt.ylim(4.0, 6.5)
 plt.savefig("sensitivity_linearParam_A.png",dpi=200)
 plt.close()
+
+important_reactions = []
+for ii in range(len(phi_array)):
+    important_reactions.append([])
+    
+    print("baseline = ", -baseline[ii])
+    for jj in range(len(perturb_array)):
+        idx = np.flip(np.argsort(heatFlux[ii,jj,:]))
+        
+        for kk in range(nImportantReactions):
+            print(idx[kk], perturb_array[jj], reactionList[idx[kk]], heatFlux[ii,jj,idx[kk]])
+            important_reactions[ii].append(idx[kk])
+            
+    print()
