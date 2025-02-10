@@ -5,14 +5,14 @@ import sys
 
 new_A_parameters = [10, 1234, 666, 3.141592]
 list_of_reactions = [1, 3, 4, 10]
-UQ_sample = 1
+UQ_sample = 1  # identifier of UQ sample space
 
 ####################################
 
-nreactions = new_A_parameters.shape[0]
+nreactions = len(new_A_parameters)
 
 volume_per_min = 25
-width = 0.010 # m
+width = 0.010
 phi_array = np.asarray([0.55, 0.70, 0.85, 1.0, 1.15, 1.30])
 surf_temp = 300.0
 burner_temp = 300.0
@@ -20,6 +20,7 @@ mech = "uiuc_20sp"
 
 transp_model = 'mixture-averaged'
 use_radiation = True
+enable_soret = False
 
 os.system("mkdir -p csv")
 os.system("mkdir -p flux")
@@ -30,9 +31,6 @@ ratio = 2
 slope = 0.05
 curve = 0.05
 loglevel = 0
-
-if transp_model == 'mixture-averaged':
-   enable_soret = False
 
 r_int = 2.38*25.4/2000
 A_int = np.pi*r_int**2
@@ -50,8 +48,10 @@ idx = []
 
 custom_reactions = [r for r in reactions]
 
-# modify all the desired ractions:
-for ireact in list_of_reactions:
+# modify all the desired reactions:
+for ii, _ireact in enumerate(list_of_reactions):
+    ireact = _ireact - 1 # convert to 0-index
+    
     rxn_type = custom_reactions[ireact].reaction_type
 
     if rxn_type == "Arrhenius" or rxn_type == "three-body-Arrhenius":
@@ -59,13 +59,13 @@ for ireact in list_of_reactions:
     if rxn_type == "falloff-Troe":
         A_parameter = reactions[ireact].rate.input_data['low-P-rate-constant']['A']
     if np.abs(A_parameter) > 0.0:
-        print(ireact, reactions[ireact].equation, A_parameter)
+        print(ireact, reactions[ireact].equation, A_parameter, new_A_parameters[ii])
 
     if rxn_type == "Arrhenius" or rxn_type == "three-body-Arrhenius":
         custom_reactions[ireact] = ct.Reaction(
             reactions[ireact].reactants,
             reactions[ireact].products,
-            ct.ArrheniusRate(new_A_parameter,
+            ct.ArrheniusRate(new_A_parameters[ii],
                              #coeff*reactions[ireact].rate.input_data['rate-constant']['A'],
                              1.0*reactions[ireact].rate.input_data['rate-constant']['b'],
                              1.0*reactions[ireact].rate.input_data['rate-constant']['Ea']),
@@ -73,12 +73,12 @@ for ireact in list_of_reactions:
             
     if rxn_type == "falloff-Troe":
 
-        low = ct.Arrhenius(new_A_parameter,
+        low = ct.Arrhenius(new_A_parameters[ii],
                            #coeff*reactions[ireact].rate.input_data['low-P-rate-constant']['A'],
                            1.0*reactions[ireact].rate.input_data['low-P-rate-constant']['b'],
                            1.0*reactions[ireact].rate.input_data['low-P-rate-constant']['Ea'])
 
-        high = ct.Arrhenius(new_A_parameter,
+        high = ct.Arrhenius(new_A_parameters[ii],
                             #coeff*reactions[ireact].rate.input_data['high-P-rate-constant']['A'],
                             1.0*reactions[ireact].rate.input_data['high-P-rate-constant']['b'],
                             1.0*reactions[ireact].rate.input_data['high-P-rate-constant']['Ea']) 
