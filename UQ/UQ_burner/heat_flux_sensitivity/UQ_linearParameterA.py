@@ -164,9 +164,9 @@ for phi in phi_array:
             # write the velocity, temperature, and mole fractions to a CSV file
             sim.save(csv_file, basis="mole")
             
-            data = [ireact, maxT, flux]       
+            data = [UQ_sample, maxT, flux]
 
         except:
-            data = [ireact, np.nan, np.nan]         
+            data = [UQ_sample, np.nan, np.nan]
              
         np.savetxt(result_file, data, fmt="%s")
