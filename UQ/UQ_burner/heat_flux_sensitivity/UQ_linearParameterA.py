@@ -3,12 +3,13 @@ import os
 import cantera as ct
 import sys
 
-new_A_parameters = [10, 1234, 666, 3.141592]
-list_of_reactions = [1, 3, 4, 10]
-UQ_sample = 1  # identifier of UQ sample space
+new_A_parameters = [(6.30768457e+01, 3.01726231e+01), 3.09058991e+01, 3.28621297e+01, 1.07705880e+01, 6.38283073e+00, 2.51576477e+01, 3.83229660e+01, 9.64601125e+01, 3.04355929e+01, 3.14596625e+01]
+new_b_parameters = [(-4.76000000e+00, -6.30000000e-01), -6.70700000e-01, -1.00000000e+00, 1.22800000e+00, 2.43300000e+00, 0.00000000e+00, -2.00000000e+00, -9.14700000e+00, -7.60000000e-01, -1.39000000e+00]
+new_E_parameters = [(1.02089600e+07, 1.60247200e+06), 7.12995440e+07, 7.11280000e+07, 2.92880000e+05, 2.23852368e+08, 0.00000000e+00, 0.00000000e+00, 1.96229600e+08, 0.00000000e+00, 4.22584000e+06]
+
+list_of_reactions = [69, 1, 25, 18, 12, 37, 5, 50, 10, 47]
 
 ####################################
-
 nreactions = len(new_A_parameters)
 
 volume_per_min = 25
@@ -53,35 +54,21 @@ for ii, _ireact in enumerate(list_of_reactions):
     ireact = _ireact - 1 # convert to 0-index
     
     rxn_type = custom_reactions[ireact].reaction_type
+    print(custom_reactions[ireact].equation)
 
-    if rxn_type == "Arrhenius" or rxn_type == "three-body-Arrhenius":
-        A_parameter = reactions[ireact].rate.input_data['rate-constant']['A']
-    if rxn_type == "falloff-Troe":
-        A_parameter = reactions[ireact].rate.input_data['low-P-rate-constant']['A']
-    if np.abs(A_parameter) > 0.0:
-        print(ireact, reactions[ireact].equation, A_parameter, new_A_parameters[ii])
-
-    if rxn_type == "Arrhenius" or rxn_type == "three-body-Arrhenius":
+    #if rxn_type == "Arrhenius" or rxn_type == "three-body-Arrhenius":
+    if type(new_A_parameters[ii]) is float:
         custom_reactions[ireact] = ct.Reaction(
             reactions[ireact].reactants,
             reactions[ireact].products,
-            ct.ArrheniusRate(new_A_parameters[ii],
-                             #coeff*reactions[ireact].rate.input_data['rate-constant']['A'],
-                             1.0*reactions[ireact].rate.input_data['rate-constant']['b'],
-                             1.0*reactions[ireact].rate.input_data['rate-constant']['Ea']),
+            ct.ArrheniusRate(new_A_parameters[ii], new_b_parameters[ii], new_E_parameters[ii]),
             third_body=custom_reactions[ireact].third_body)
             
-    if rxn_type == "falloff-Troe":
+    #if rxn_type == "falloff-Troe":
+    if type(new_A_parameters[ii]) is tuple:
+        low = ct.Arrhenius(new_A_parameters[ii][0], new_b_parameters[ii][0], new_E_parameters[ii][0])
+        high = ct.Arrhenius(new_A_parameters[ii][1], new_b_parameters[ii][1], new_E_parameters[ii][1])
 
-        low = ct.Arrhenius(new_A_parameters[ii],
-                           #coeff*reactions[ireact].rate.input_data['low-P-rate-constant']['A'],
-                           1.0*reactions[ireact].rate.input_data['low-P-rate-constant']['b'],
-                           1.0*reactions[ireact].rate.input_data['low-P-rate-constant']['Ea'])
-
-        high = ct.Arrhenius(new_A_parameters[ii],
-                            #coeff*reactions[ireact].rate.input_data['high-P-rate-constant']['A'],
-                            1.0*reactions[ireact].rate.input_data['high-P-rate-constant']['b'],
-                            1.0*reactions[ireact].rate.input_data['high-P-rate-constant']['Ea']) 
         falloff_coeffs = np.array([
                 reactions[ireact].rate.input_data["Troe"]["A"],
                 reactions[ireact].rate.input_data["Troe"]["T3"],
@@ -108,13 +95,13 @@ for phi in phi_array:
     result_file = ('./flux/stagnation_flame_' + mech +
                    '_m' + str('%4.2f' % volume_per_min) + 
                    '_phi' + str('%4.2f' % phi) +
-                   '_S' + str('%04d' % UQ_sample) +                       
+                   #'_S' + str('%04d' % UQ_sample) +                       
                    '.csv') 
 
     csv_file = ('./csv/stagnation_flame_' + mech +
                '_m' + str('%4.2f' % volume_per_min) + 
                '_phi' + str('%4.2f' % phi) +
-               '_S' + str('%04d' % UQ_sample) +
+               #'_S' + str('%04d' % UQ_sample) +
                '.csv')
 
     if os.path.exists(result_file) is False:
@@ -164,9 +151,9 @@ for phi in phi_array:
             # write the velocity, temperature, and mole fractions to a CSV file
             sim.save(csv_file, basis="mole")
             
-            data = [UQ_sample, maxT, flux]
+            data = [maxT, flux]
 
         except:
-            data = [UQ_sample, np.nan, np.nan]
+            data = [np.nan, np.nan]
              
         np.savetxt(result_file, data, fmt="%s")
