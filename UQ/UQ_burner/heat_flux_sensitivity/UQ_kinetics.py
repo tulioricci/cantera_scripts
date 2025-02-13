@@ -3,27 +3,37 @@ import os
 import cantera as ct
 import sys
 
-new_A_parameters = [(6.30768457e+01, 3.01726231e+01), 3.09058991e+01, 3.28621297e+01, 1.07705880e+01, 6.38283073e+00, 2.51576477e+01, 3.83229660e+01, 9.64601125e+01, 3.04355929e+01, 3.14596625e+01]
+mech = "uiuc_20sp"
+
+new_lnA_parameters = [(6.30768457e+01, 3.01726231e+01), 3.09058991e+01, 3.28621297e+01, 1.07705880e+01, 6.38283073e+00, 2.51576477e+01, 3.83229660e+01, 9.64601125e+01, 3.04355929e+01, 3.14596625e+01]
 new_b_parameters = [(-4.76000000e+00, -6.30000000e-01), -6.70700000e-01, -1.00000000e+00, 1.22800000e+00, 2.43300000e+00, 0.00000000e+00, -2.00000000e+00, -9.14700000e+00, -7.60000000e-01, -1.39000000e+00]
 new_E_parameters = [(1.02089600e+07, 1.60247200e+06), 7.12995440e+07, 7.11280000e+07, 2.92880000e+05, 2.23852368e+08, 0.00000000e+00, 0.00000000e+00, 1.96229600e+08, 0.00000000e+00, 4.22584000e+06]
 
 list_of_reactions = [69, 1, 25, 18, 12, 37, 5, 50, 10, 47]
 
 ####################################
-nreactions = len(new_A_parameters)
+nreactions = len(list_of_reactions)
+if len(new_lnA_parameters) != nreactions:
+    print("new_lnA_parameters is wrong")
+    sys.exit()
+if len(new_b_parameters) != nreactions:
+    print("new_b_parameters is wrong")
+    sys.exit()
+if len(new_E_parameters) != nreactions:
+    print("new_E_parameters is wrong")
+    sys.exit()
 
 volume_per_min = 25
 width = 0.010
 phi_array = np.asarray([0.55, 0.70, 0.85, 1.0, 1.15, 1.30])
 surf_temp = 300.0
 burner_temp = 300.0
-mech = "uiuc_20sp"
 
 transp_model = 'mixture-averaged'
 use_radiation = True
 enable_soret = False
 
-os.system("mkdir -p csv")
+#os.system("mkdir -p csv")
 os.system("mkdir -p flux")
 
 ##############
@@ -57,17 +67,20 @@ for ii, _ireact in enumerate(list_of_reactions):
     print(custom_reactions[ireact].equation)
 
     #if rxn_type == "Arrhenius" or rxn_type == "three-body-Arrhenius":
-    if type(new_A_parameters[ii]) is float:
+    if type(new_lnA_parameters[ii]) is float:
+        new_A_parameters = np.exp(new_lnA_parameters[ii])
         custom_reactions[ireact] = ct.Reaction(
             reactions[ireact].reactants,
             reactions[ireact].products,
-            ct.ArrheniusRate(new_A_parameters[ii], new_b_parameters[ii], new_E_parameters[ii]),
+            ct.ArrheniusRate(new_A_parameters, new_b_parameters[ii], new_E_parameters[ii]),
             third_body=custom_reactions[ireact].third_body)
             
     #if rxn_type == "falloff-Troe":
-    if type(new_A_parameters[ii]) is tuple:
-        low = ct.Arrhenius(new_A_parameters[ii][0], new_b_parameters[ii][0], new_E_parameters[ii][0])
-        high = ct.Arrhenius(new_A_parameters[ii][1], new_b_parameters[ii][1], new_E_parameters[ii][1])
+    if type(new_lnA_parameters[ii]) is tuple:
+        new_A_parameters_low = np.exp(new_lnA_parameters[ii][0])
+        new_A_parameters_high = np.exp(new_lnA_parameters[ii][1])
+        low = ct.Arrhenius(new_A_parameters_low, new_b_parameters[ii][0], new_E_parameters[ii][0])
+        high = ct.Arrhenius(new_A_parameters_high, new_b_parameters[ii][1], new_E_parameters[ii][1])
 
         falloff_coeffs = np.array([
                 reactions[ireact].rate.input_data["Troe"]["A"],
@@ -98,20 +111,49 @@ for phi in phi_array:
                    #'_S' + str('%04d' % UQ_sample) +                       
                    '.csv') 
 
-    csv_file = ('./csv/stagnation_flame_' + mech +
-               '_m' + str('%4.2f' % volume_per_min) + 
-               '_phi' + str('%4.2f' % phi) +
-               #'_S' + str('%04d' % UQ_sample) +
-               '.csv')
+    #stag_csv_file = ('./csv/stagnation_flame_' + mech +
+    #           '_m' + str('%4.2f' % volume_per_min) + 
+    #           '_phi' + str('%4.2f' % phi) +
+    #           #'_S' + str('%04d' % UQ_sample) +
+    #           '.csv')
+               
+    #flame_csv_file = ('./csv/adiabatic_flame_' + mech +
+    #           '_m' + str('%4.2f' % volume_per_min) + 
+    #           '_phi' + str('%4.2f' % phi) +
+    #           #'_S' + str('%04d' % UQ_sample) +
+    #           '.csv')               
 
     if os.path.exists(result_file) is False:
 
         air = "O2:0.21,N2:0.79"
         fuel = "C2H4:1"
         gas.set_equivalence_ratio(phi=phi, fuel=fuel, oxidizer=air)
+        
+        #~~~ first, solve the 1D flame speed:
+        f = ct.FreeFlame(gas, width=0.02)
 
+        try:
+            f.energy_enabled = False
+            f.set_refine_criteria(ratio=4, slope=0.3, curve=0.3)
+            f.solve(loglevel=loglevel, refine_grid=True, auto=True)
+
+            f.energy_enabled = True
+            f.set_refine_criteria(ratio=3, slope=0.15, curve=0.15)
+            f.solve(loglevel=loglevel, refine_grid=True, auto=True)        
+
+            f.set_refine_criteria(ratio=2, slope=0.05, curve=0.05)
+            f.solve(loglevel=loglevel, refine_grid=True, auto=True)
+
+            flame_speed = f.velocity[0]
+            #print(flame_speed)
+            #f.save(flame_csv_file, basis="mole")
+        except:
+            flame_speed = np.nan
+
+        #~~~ then, solve the stagnation flow
+        gas.set_equivalence_ratio(phi=phi, fuel=fuel, oxidizer=air)
         gas.TP = burner_temp, 101325.0
-        _, rho_int, x = gas.TDX
+        rho_int = gas.density
 
         u_ref = volume_per_min*lmin_to_m3s/A_int
         rhoU_ref = rho_ref*u_ref
@@ -138,22 +180,20 @@ for phi in phi_array:
                                     prune=0.025)
             sim.solve(loglevel, refine_grid=True, auto=True)
 
-            sim.set_refine_criteria(ratio=ratio, slope=slope, curve=curve,
-                                    prune=0.025)
-            sim.solve(loglevel, refine_grid=True, auto=True)
-
             dT = sim.T[-2] - sim.T[-1]
             dx = sim.grid[-2] - sim.grid[-1]
             kappa = sim.thermal_conductivity
             flux = kappa[-1]*dT/dx/10000.0
             maxT = max(sim.T)
 
+            #print(maxT)
+            #print(flux)
             # write the velocity, temperature, and mole fractions to a CSV file
-            sim.save(csv_file, basis="mole")
+            #sim.save(stag_csv_file, basis="mole")
             
-            data = [maxT, flux]
-
         except:
-            data = [np.nan, np.nan]
-             
+            maxT = np.nan
+            flux = np.nan
+        
+        data = [flame_speed, maxT, flux]
         np.savetxt(result_file, data, fmt="%s")
