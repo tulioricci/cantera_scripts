@@ -123,7 +123,8 @@ for phi in phi_array:
     #           #'_S' + str('%04d' % UQ_sample) +
     #           '.csv')               
 
-    if os.path.exists(result_file) is False:
+    if True:
+    #if os.path.exists(result_file) is False:
 
         air = "O2:0.21,N2:0.79"
         fuel = "C2H4:1"
@@ -184,16 +185,24 @@ for phi in phi_array:
             dx = sim.grid[-2] - sim.grid[-1]
             kappa = sim.thermal_conductivity
             flux = kappa[-1]*dT/dx/10000.0
-            maxT = max(sim.T)
-
-            #print(maxT)
+            
+            idx = np.argmin(np.abs(sim.grid - 0.005))
+            temperature = sim.T[idx]
+            X_CO = sim.X[gas.species_index("CO"),idx]
+            X_CO2 = sim.X[gas.species_index("CO2"),idx]
+            
+            #print(temperature)
+            #print(X_CO)
+            #print(X_CO2)
             #print(flux)
             # write the velocity, temperature, and mole fractions to a CSV file
             #sim.save(stag_csv_file, basis="mole")
             
         except:
-            maxT = np.nan
+            temperature = np.nan
+            X_CO = np.nan
+            X_CO2 = np.nan
             flux = np.nan
         
-        data = [flame_speed, maxT, flux]
-        np.savetxt(result_file, data, fmt="%s")
+        data = [flame_speed, temperature, X_CO, X_CO2, flux]
+        #np.savetxt(result_file, data, fmt="%s")
