@@ -195,7 +195,7 @@ for phi in phi_array:
             #print(X_CO)
             #print(X_CO2)
             #print(flux)
-            # write the velocity, temperature, and mole fractions to a CSV file
+            #~~ write the velocity, temperature, and mole fractions to a CSV file
             #sim.save(stag_csv_file, basis="mole")
             
         except:
@@ -205,4 +205,4 @@ for phi in phi_array:
             flux = np.nan
         
         data = [flame_speed, temperature, X_CO, X_CO2, flux]
-        #np.savetxt(result_file, data, fmt="%s")
+        np.savetxt(result_file, data, fmt="%s")
