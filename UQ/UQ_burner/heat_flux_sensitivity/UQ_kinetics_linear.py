@@ -3,8 +3,8 @@ import os
 import cantera as ct
 import sys
 
-mech = "wang99_51sp"
-#mech = "uiuc_20sp"
+#mech = "wang99_51sp"
+mech = "uiuc_20sp_Troe"
 
 ####################################
 
@@ -120,9 +120,7 @@ for ii, _ireact in enumerate(list_of_reactions):
             
         #print(reactions[ireact].input_data)
         #print(custom_reactions[ireact].input_data)
-        
-import sys
-sys.exit()
+
 
 gas = ct.Solution(thermo='ideal-gas', kinetics='gas', 
                   species=species, reactions=custom_reactions)
