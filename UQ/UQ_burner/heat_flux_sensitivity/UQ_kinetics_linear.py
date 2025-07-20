@@ -20,9 +20,6 @@ if mech == "uiuc_20sp":
     #new_E_parameters = [(1.02089600e+07, 1.60247200e+06), 7.12995440e+07, 7.11280000e+07, 2.92880000e+05, 2.23852368e+08, 0.00000000e+00, 0.00000000e+00, 1.96229600e+08, 0.00000000e+00, 4.22584000e+06]
     #list_of_reactions = [69, 1, 25, 18, 12, 37, 5, 50, 10, 47]
     list_of_reactions = [1, 18, 69, 25, 37, 26, 10, 14, 47, 44]
-    
-
-
 
 nreactions = len(list_of_reactions)
 if len(new_A_parameters) != nreactions:
@@ -121,10 +118,6 @@ for ii, _ireact in enumerate(list_of_reactions):
             ct.TroeRate(high=high, low=low, falloff_coeffs=falloff_coeffs),
             third_body=custom_reactions[ireact].third_body
             )
-            
-        #print(reactions[ireact].input_data)
-        #print(custom_reactions[ireact].input_data)
-
 
 gas = ct.Solution(thermo='ideal-gas', kinetics='gas', 
                   species=species, reactions=custom_reactions)
@@ -217,7 +210,6 @@ for phi in phi_array:
             sim.set_refine_criteria(ratio=ratio, slope=slope, curve=curve,
                                     prune=0.025)
             sim.solve(loglevel, refine_grid=True, auto=True)
-
 
             dT = sim.T[-2] - sim.T[-1]
             dx = sim.grid[-2] - sim.grid[-1]
