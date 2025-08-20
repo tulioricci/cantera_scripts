@@ -239,4 +239,4 @@ for phi in phi_array:
         data = [flame_speed, temperature, X_CO, X_CO2, flux]
         np.savetxt(result_file, data, fmt="%s")
         
-        #sim.save("debug" + str('%4.2f' % phi) + ".csv", basis="mole", overwrite=True)
+        sim.save("debug" + str('%4.2f' % phi) + ".csv", basis="mole", overwrite=True)
